@@ -79,12 +79,14 @@ class DataManagement(tk.Frame):
         self.label_rowCount = ttk.Label(self.frame1, text="  ")  # rows
         self.label_columnCount = ttk.Label(self.frame1, text="  ")  # columns
         self.label_cellCount = ttk.Label(self.frame1, text="  ")
-        self.button_inner_join = ttk.Button(self.frame1, text='INNER JOIN', width=20, command=self.inner_join_window)
+        self.button_inner_join = ttk.Button(self.frame1, text='INNER JOIN', width=20,
+                                            command=lambda: self.join_window(0))
         self.button_left_join = ttk.Button(self.frame1, text='LEFT OUTER JOIN', width=20,
-                                           command=self.inner_join_window)
+                                           command=lambda: self.join_window(1))
         self.button_right_join = ttk.Button(self.frame1, text='RIGHT OUTER JOIN', width=20,
-                                            command=self.inner_join_window)
-
+                                            command=lambda: self.join_window(2))
+        self.button_full_join = ttk.Button(self.frame1, text='FULL OUTER JOIN', width=20,
+                                           command=lambda: self.join_window(3))
         # 空白作り用
         self.label_blank1 = ttk.Label(self.frame1, text="　　　　　　")
         self.label_blank2 = ttk.Label(self.frame1, text="　　　　　　")
@@ -114,6 +116,7 @@ class DataManagement(tk.Frame):
         self.button_inner_join.grid(row=4, column=3)
         self.button_left_join.grid(row=5, column=3)
         self.button_right_join.grid(row=6, column=3)
+        self.button_full_join.grid(row=7, column=3)
 
         self.label_blank1.grid(row=0, column=2)
         self.label_blank2.grid(row=1, column=2)
@@ -311,7 +314,7 @@ class DataManagement(tk.Frame):
         tree_v_scroll.grid(row=0, column=1, sticky=tk.NS)
         """
 
-    def inner_join_window(self):
+    def join_window(self, event):
         window = tk.Toplevel(self)
         window.title("INNER JOIN")  # ウィンドウタイトル
         window.geometry("800x380")  # ウィンドウサイズ(幅x高さ)
@@ -367,8 +370,18 @@ class DataManagement(tk.Frame):
         scrollbar_df2.grid(row=1, column=7, sticky=[tk.N, tk.S])
 
         # JOIN確定ボタン
-        button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.inner_join_execute)
-        button_join_execute.grid(row=2, column=5)
+        if event == 0:
+            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.inner_join_execute)
+            button_join_execute.grid(row=2, column=5)
+        elif event == 1:
+            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.left_join_execute)
+            button_join_execute.grid(row=2, column=5)
+        elif event == 2:
+            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.right_join_execute)
+            button_join_execute.grid(row=2, column=5)
+        elif event == 3:
+            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.full_join_execute)
+            button_join_execute.grid(row=2, column=5)
 
     # inner join execute method
     def inner_join_execute(self):
@@ -378,6 +391,54 @@ class DataManagement(tk.Frame):
             left_on = self.df2_column_listbox.get(self.df2_column_listbox.curselection())
             right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
             self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="inner")
+            self.create_table()
+            self.reset_index()
+            self.count_row_column(self.df)
+            self.show_table(self.df)
+            self.show_table_info()
+            self.combobox_config()
+        except:
+            messagebox.showerror("エラー", "選択したコラムで結合はできません")
+
+    def left_join_execute(self):
+        try:
+            df1 = self.df_for_join[0]
+            df2 = self.df_for_join[1]
+            left_on = self.df2_column_listbox.get(self.df2_column_listbox.curselection())
+            right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
+            self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="left")
+            self.create_table()
+            self.reset_index()
+            self.count_row_column(self.df)
+            self.show_table(self.df)
+            self.show_table_info()
+            self.combobox_config()
+        except:
+            messagebox.showerror("エラー", "選択したコラムで結合はできません")
+
+    def right_join_execute(self):
+        try:
+            df1 = self.df_for_join[0]
+            df2 = self.df_for_join[1]
+            left_on = self.df2_column_listbox.get(self.df2_column_listbox.curselection())
+            right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
+            self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="right")
+            self.create_table()
+            self.reset_index()
+            self.count_row_column(self.df)
+            self.show_table(self.df)
+            self.show_table_info()
+            self.combobox_config()
+        except:
+            messagebox.showerror("エラー", "選択したコラムで結合はできません")
+
+    def full_join_execute(self):
+        try:
+            df1 = self.df_for_join[0]
+            df2 = self.df_for_join[1]
+            left_on = self.df2_column_listbox.get(self.df2_column_listbox.curselection())
+            right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
+            self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="outer")
             self.create_table()
             self.reset_index()
             self.count_row_column(self.df)
