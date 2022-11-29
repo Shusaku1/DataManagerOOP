@@ -14,6 +14,7 @@ from tkinterdnd2 import TkinterDnD
 class DataManagement(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
+        self.df_for_union = []
         self.button_to_csv = None
         self.button_to_excel = None
         self.button_show_df = None
@@ -87,6 +88,10 @@ class DataManagement(tk.Frame):
                                             command=lambda: self.join_window(2))
         self.button_full_join = ttk.Button(self.frame1, text='FULL OUTER JOIN', width=20,
                                            command=lambda: self.join_window(3))
+        self.button_union = ttk.Button(self.frame1, text='UNION', width=20,
+                                       command=lambda: self.union_window())
+        self.button_union_all = ttk.Button(self.frame1, text='UNION ALL', width=20,
+                                           command=lambda: self.union_window())
         # 空白作り用
         self.label_blank1 = ttk.Label(self.frame1, text="　　　　　　")
         self.label_blank2 = ttk.Label(self.frame1, text="　　　　　　")
@@ -117,6 +122,8 @@ class DataManagement(tk.Frame):
         self.button_left_join.grid(row=5, column=3)
         self.button_right_join.grid(row=6, column=3)
         self.button_full_join.grid(row=7, column=3)
+        self.button_union.grid(row=8, column=3)
+        self.button_union_all.grid(row=9, column=3)
 
         self.label_blank1.grid(row=0, column=2)
         self.label_blank2.grid(row=1, column=2)
@@ -314,17 +321,234 @@ class DataManagement(tk.Frame):
         tree_v_scroll.grid(row=0, column=1, sticky=tk.NS)
         """
 
+    # Table and File Manager
+    def drop_inside_listbox(self, event):
+        if event.data[-1] == "}":
+            if event.data[0] == "{":
+                event.data = event.data[:-1]
+                event.data = event.data[1:]
+            else:
+                pass
+        else:
+            pass
+        self.file_names_listbox.insert("end", event.data)
+
+    def select_file_dropbox(self):
+        name = filedialog.askopenfilename()
+        self.file_names_listbox.insert("end", name)
+
+    def select_file(self, event):
+        try:
+            file_name = self.file_names_listbox.get(self.file_names_listbox.curselection())
+            if file_name.endswith(".xlsx"):
+                self.df = pd.read_excel(file_name)
+            elif file_name.endswith(".csv"):
+                self.df = pd.read_csv(file_name)
+            messagebox.showinfo("確認", "Excelファイル読み込み完了")
+        except:
+            messagebox.showinfo("エラー", "ファイルの形式が間違っています")
+        index = list(range(len(self.df)))
+        try:
+            self.df.insert(loc=0, column='index', value=index)
+        except:
+            pass
+        self.create_table()
+        self.show_table_info()
+        self.show_table(self.df)
+        print(self.df)
+
+    """
+    def load_excel_file(self):
+        try:
+
+            self.df = pd.read_excel("./" + self.entry1.get() + ".xlsx", sheet_name=str(self.entry2.get()))
+            # print(self.df)
+            self.show_table_info()
+
+
+        except:
+            messagebox.showinfo("エラー", "入力されたファイル名かシート名が正しくありません")
+    """
+
+    # 表情報の表示
+    def create_table(self):
+        # 古いテーブルをウィンドウから消す
+        try:
+            self.tree.destroy()
+            print("tree printed")
+        except:
+            pass
+        self.tree = ttk.Treeview(self.frame4, height=30)
+        self.tree.grid(row=0, column=0)
+        tree_h_scroll = ttk.Scrollbar(
+            self.frame4,
+            orient=tk.HORIZONTAL,
+            command=self.tree.xview
+        )
+
+        tree_v_scroll = ttk.Scrollbar(
+            self.frame4,
+            orient=tk.VERTICAL,
+            command=self.tree.yview
+        )
+        self.tree['xscrollcommand'] = tree_h_scroll.set
+        self.tree['yscrollcommand'] = tree_v_scroll.set
+        # self.tree.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
+        tree_h_scroll.grid(row=1, column=0, sticky=tk.EW)
+        tree_v_scroll.grid(row=0, column=1, sticky=tk.NS)
+
+        self.button_show_df = ttk.Button(self.frame5, text="表全体を表示", width=37, command=self.show_current_df)
+        self.button_show_df.grid(row=0, column=0)
+
+        # self.button_to_excel = ttk.Button(self.frame5, text="Excelファイル形式で保存", width=25, command=self.to_excel)
+        # self.button_to_excel.grid(row=0, column=1)
+
+        self.button_to_csv = ttk.Button(self.frame5, text="CSVファイル形式で保存", width=37, command=self.to_csv)
+        self.button_to_csv.grid(row=0, column=1)
+
+    def show_table(self, data):
+
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        self.tree["column"] = list(data.columns)
+
+        self.tree.column("# 0", anchor=tkinter.CENTER, stretch=tkinter.NO, width=0)
+
+        # self.tree.column("# 1", anchor=tkinter.CENTER, stretch=tkinter.NO, width=100)
+        # self.tree.heading("# 1", text="ID")
+        i = 1
+        for column in self.tree["column"]:
+            self.tree.heading("# " + str(i), text=column)
+            self.tree.column("# " + str(i), anchor=tkinter.CENTER, stretch=tkinter.NO, width=100)
+            i = i + 1
+        rows = data.to_numpy().tolist()
+        print(rows)
+        for row in rows:
+            self.tree.insert("", "end", values=row)
+        self.count_row_column(data)
+
+    def show_current_df(self):
+        self.show_table(self.df)
+        self.show_table_info()
+
+    def show_table_info(self):
+        self.column_names = list(self.df.columns.values)
+        # indexは表には常に表示されるが、削除できないようにカラム一覧からは消しておく
+        self.column_names.pop(0)
+        print(self.column_names)
+        # 行数、列数の設定
+        self.count_row_column(self.df)
+        # comboboxに要素を追加
+        self.combobox_config()
+
+        # リストボックスにリストを追加
+        # リストを空にする
+        self.listbox.delete(0, tkinter.END)
+        for x in self.column_names:
+            self.listbox.insert(tk.END, x)
+
+    """
+    def to_excel(self):
+        f = filedialog.asksaveasfile(initialfile='Untitled.xlsx',
+                                     defaultextension=".xlsx",
+                                     filetypes=[("Excel file", ".xlsx"), ("Excel Documents", ".xlsx")])
+        # file = filedialog.asksaveasfile(filetypes=[("Excel file", ".xlsx")], mode='w', defaultextension=".xlsx")
+        # self.df.to_excel(file)
+        messagebox.showinfo("完了", "保存完了")
+    """
+
+    def to_csv(self):
+        file = filedialog.asksaveasfile(filetypes=[("csv file", ".csv")], defaultextension=".csv")
+        self.df.to_csv(file, index=False)
+        messagebox.showinfo("完了", "保存完了")
+
+    # DF information
+    def count_row_column(self, data):
+        self.rows_count = data.shape[0]
+        self.columns_count = data.shape[1]
+        self.cell_count = self.rows_count * self.columns_count
+        self.label_rowCount.config(text=str(self.rows_count) + " 行")
+        self.label_columnCount.config(text=str(self.columns_count - 1) + " 列")
+        self.label_cellCount.config(text=str(self.cell_count) + " セル")
+
+    # combobox config
+    def combobox_config(self):
+        self.column_combobox1['values'] = self.column_names
+        self.column_combobox2['values'] = self.column_names
+        self.column_combobox3['values'] = self.column_names
+
+    def reset_index(self):
+        try:
+            del self.df["index"]
+        except:
+            pass
+        index = list(range(len(self.df)))
+        self.df.insert(loc=0, column='index', value=index)
+
+    # Search Related
+    # 探索する
+    def search(self):
+
+        if self.selected:
+            keyword = self.entry_keyWord.get()
+            if keyword:
+                self.df_CONCAT = self.df_selected[self.selected[0]].astype(str)
+                for x in range(1, len(self.selected)):
+                    self.df_CONCAT += self.df_selected[self.selected[x]].astype(str) + " "
+
+                df_contain_value = self.df_selected[self.df_CONCAT.str.contains(keyword)]
+                print(df_contain_value)
+                self.show_table(df_contain_value)
+                rows_count_contain_value = df_contain_value.shape[0]
+
+                self.label_rowsKeywordResult.config(text=str(rows_count_contain_value) + " 行")
+
+            else:
+                messagebox.showinfo("エラー", "検索ワードが入力されていません")
+        else:
+            messagebox.showinfo("エラー", "カラムを選択して下さい")
+
+        # 全選択する
+
+    def select_all(self):
+        self.listbox.select_set(0, tk.END)
+
+        # 全クリアする
+
+    def clear_all(self):
+        self.listbox.select_clear(0, tk.END)
+
+        # 確定する
+
+    def confirm(self):
+        self.selected.clear()
+        try:
+            for i in self.listbox.curselection():
+                self.selected.append(self.listbox.get(i, i)[0])
+                self.df_selected = self.df[self.selected].copy()
+                self.df_selected.insert(0, 'index', self.df['index'])
+                self.show_table(self.df_selected)
+            if self.selected:
+                messagebox.showinfo("選択完了", "選択したコラムでDataFrameを作成しました")
+            else:
+                messagebox.showinfo("エラー", "コラムを選択して下さい")
+            print(self.df_selected)
+        except:
+            messagebox.showinfo("エラー", "ファイルが読み込まれていません")
+
+    # JOIN Operation
     def join_window(self, event):
         window = tk.Toplevel(self)
-        window.title("INNER JOIN")  # ウィンドウタイトル
+        window.title("JOIN window")  # ウィンドウタイトル
         window.geometry("800x380")  # ウィンドウサイズ(幅x高さ)
-        frame_inner_join = ttk.Frame(window)
-        frame_inner_join.grid(row=0, column=0, padx=20, pady=20)
+        frame_join = ttk.Frame(window)
+        frame_join.grid(row=0, column=0, padx=20, pady=20)
         # スクロールバーの作成
-        scrollbar_file_names = tk.Scrollbar(frame_inner_join, orient=tk.VERTICAL, command=tk.Listbox.yview)
+        scrollbar_file_names = tk.Scrollbar(frame_join, orient=tk.VERTICAL, command=tk.Listbox.yview)
 
         # リストボックス、スクロールバーの配置
-        self.file_names_listbox2 = tk.Listbox(frame_inner_join, width=40, height=15, selectmode=MULTIPLE,
+        self.file_names_listbox2 = tk.Listbox(frame_join, width=40, height=15, selectmode=MULTIPLE,
                                               yscrollcommand=scrollbar_file_names.set, background="darkgray")
         self.file_names_listbox2.grid(row=1, column=0)
         scrollbar_file_names.config(command=self.file_names_listbox2.yview)
@@ -335,34 +559,34 @@ class DataManagement(tk.Frame):
             self.file_names_listbox2.insert(tk.END, x)
 
         # label
-        label_choose = ttk.Label(frame_inner_join, text="結合する二つのファイルを選択して下さい")
+        label_choose = ttk.Label(frame_join, text="結合する二つのファイルを選択して下さい")
         label_choose.grid(row=0, column=0)
-        confirm_button = ttk.Button(frame_inner_join, text="決定", width=20, command=self.create_df_join)
+        confirm_button = ttk.Button(frame_join, text="決定", width=20, command=self.create_df_join)
         confirm_button.grid(row=2, column=0)
 
         # 間にspace1
-        label_space1 = ttk.Label(frame_inner_join, text="           ")
+        label_space1 = ttk.Label(frame_join, text="           ")
         label_space1.grid(row=0, column=2)
 
         # 一つ目のデータフレームのカラムリストリストボックス
-        scrollbar_df1 = tk.Scrollbar(frame_inner_join, orient=tk.VERTICAL, command=tk.Listbox.yview)
+        scrollbar_df1 = tk.Scrollbar(frame_join, orient=tk.VERTICAL, command=tk.Listbox.yview)
 
         # リストボックス、スクロールバーの配置
-        self.df1_column_listbox = tk.Listbox(frame_inner_join, width=25, height=15, selectmode=tkinter.SINGLE,
+        self.df1_column_listbox = tk.Listbox(frame_join, width=25, height=15, selectmode=tkinter.SINGLE,
                                              exportselection=0, yscrollcommand=scrollbar_df1.set)
         self.df1_column_listbox.grid(row=1, column=3)
         scrollbar_df1.config(command=self.df1_column_listbox.yview)
         scrollbar_df1.grid(row=1, column=4, sticky=[tk.N, tk.S])
 
         # 間にspace2
-        label_space2 = ttk.Label(frame_inner_join, text="           ")
+        label_space2 = ttk.Label(frame_join, text="           ")
         label_space2.grid(row=0, column=5)
 
         # 二つ目のデータフレームのカラムリストリストボックス
-        scrollbar_df2 = tk.Scrollbar(frame_inner_join, orient=tk.VERTICAL, command=tk.Listbox.yview)
+        scrollbar_df2 = tk.Scrollbar(frame_join, orient=tk.VERTICAL, command=tk.Listbox.yview)
 
         # リストボックス、スクロールバーの配置
-        self.df2_column_listbox = tk.Listbox(frame_inner_join, width=25, height=15, selectmode=tkinter.SINGLE,
+        self.df2_column_listbox = tk.Listbox(frame_join, width=25, height=15, selectmode=tkinter.SINGLE,
                                              exportselection=0,
                                              yscrollcommand=scrollbar_df2.set)
         self.df2_column_listbox.grid(row=1, column=6)
@@ -371,17 +595,60 @@ class DataManagement(tk.Frame):
 
         # JOIN確定ボタン
         if event == 0:
-            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.inner_join_execute)
+            button_join_execute = ttk.Button(frame_join, text="INNER JOIN", width=15,
+                                             command=self.inner_join_execute)
             button_join_execute.grid(row=2, column=5)
         elif event == 1:
-            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.left_join_execute)
+            button_join_execute = ttk.Button(frame_join, text="LEFT OUTER JOIN", width=15,
+                                             command=self.left_join_execute)
             button_join_execute.grid(row=2, column=5)
         elif event == 2:
-            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.right_join_execute)
+            button_join_execute = ttk.Button(frame_join, text="RIGHT OUTER JOIN", width=15,
+                                             command=self.right_join_execute)
             button_join_execute.grid(row=2, column=5)
         elif event == 3:
-            button_join_execute = ttk.Button(frame_inner_join, text="INNER JOIN", width=15, command=self.full_join_execute)
+            button_join_execute = ttk.Button(frame_join, text="FULL OUTER JOIN", width=15,
+                                             command=self.full_join_execute)
             button_join_execute.grid(row=2, column=5)
+
+    # JOINように選ばれたファイルをdf化
+    def create_df_join(self):
+        try:
+            self.df_for_join.clear()
+            r = 0
+            get_content = []
+            for x in self.file_names_listbox2.curselection():
+                get_content.append(self.file_names_listbox2.get(x))
+
+            if len(get_content) != 2:
+                messagebox.showinfo("エラー", "ファイルを二つ選択してください")
+                return
+            for i in get_content:
+                if i.endswith(".xlsx"):
+                    self.df_for_join.append(pd.read_excel(i))
+                elif i.endswith(".csv"):
+                    self.df_for_join.append(pd.read_csv(i))
+                df_columns = list(self.df_for_join[-1].columns.values)
+                j = 0
+                for x in df_columns:
+                    if r == 0:
+                        if j == 0:
+                            self.df1_column_listbox.delete(0, tk.END)
+                            self.df1_column_listbox.insert(tk.END, x)
+                            j += 1
+                        else:
+                            self.df1_column_listbox.insert(tk.END, x)
+                    elif r == 1:
+                        if j == 0:
+                            self.df2_column_listbox.delete(0, tk.END)
+                            self.df2_column_listbox.insert(tk.END, x)
+                            j += 1
+                        else:
+                            self.df2_column_listbox.insert(tk.END, x)
+                r += 1
+
+        except EOFError:
+            messagebox.showinfo("エラー", "ファイルの形式が間違っています")
 
     # inner join execute method
     def inner_join_execute(self):
@@ -448,45 +715,87 @@ class DataManagement(tk.Frame):
         except:
             messagebox.showerror("エラー", "選択したコラムで結合はできません")
 
-    # JOINように選ばれたファイルをdf化
-    def create_df_join(self):
+    # union
+    def union_window(self):
+        window = tk.Toplevel(self)
+        window.title("UNION window")  # ウィンドウタイトル
+        window.geometry("300x380")  # ウィンドウサイズ(幅x高さ)
+        frame_union = ttk.Frame(window)
+        frame_union.grid(row=0, column=0, padx=20, pady=20)
+
+        # スクロールバーの作成
+        scrollbar_file_names = tk.Scrollbar(frame_union, orient=tk.VERTICAL, command=tk.Listbox.yview)
+
+        # リストボックス、スクロールバーの配置
+        self.file_names_listbox2 = tk.Listbox(frame_union, width=40, height=15, selectmode=MULTIPLE,
+                                              yscrollcommand=scrollbar_file_names.set, background="darkgray")
+        self.file_names_listbox2.grid(row=1, column=0)
+        scrollbar_file_names.config(command=self.file_names_listbox2.yview)
+        scrollbar_file_names.grid(row=1, column=1, sticky=[tk.N, tk.S])
+
+        get_content = self.file_names_listbox.get(0, tkinter.END)
+        for x in get_content:
+            self.file_names_listbox2.insert(tk.END, x)
+
+        # label
+        label_choose = ttk.Label(frame_union, text="結合する二つのファイルを選択して下さい")
+        label_choose.grid(row=0, column=0)
+        confirm_button = ttk.Button(frame_union, text="決定", width=20, command=self.create_df_union)
+        confirm_button.grid(row=2, column=0)
+
+        # JOINように選ばれたファイルをdf化
+
+    def create_df_union(self):
         try:
-            self.df_for_join.clear()
+            self.df_for_union.clear()
             r = 0
             get_content = []
             for x in self.file_names_listbox2.curselection():
                 get_content.append(self.file_names_listbox2.get(x))
 
             if len(get_content) != 2:
-                messagebox.showinfo("エラー", "ファイルを二つ選択してください")
+                messagebox.showerror("エラー", "ファイルを二つ選択してください")
                 return
             for i in get_content:
                 if i.endswith(".xlsx"):
-                    self.df_for_join.append(pd.read_excel(i))
+                    self.df_for_union.append(pd.read_excel(i))
                 elif i.endswith(".csv"):
-                    self.df_for_join.append(pd.read_csv(i))
-                df_columns = list(self.df_for_join[-1].columns.values)
-                j = 0
-                for x in df_columns:
-                    if r == 0:
-                        if j == 0:
-                            self.df1_column_listbox.delete(0, tk.END)
-                            self.df1_column_listbox.insert(tk.END, x)
-                            j += 1
-                        else:
-                            self.df1_column_listbox.insert(tk.END, x)
-                    elif r == 1:
-                        if j == 0:
-                            self.df2_column_listbox.delete(0, tk.END)
-                            self.df2_column_listbox.insert(tk.END, x)
-                            j += 1
-                        else:
-                            self.df2_column_listbox.insert(tk.END, x)
-                r += 1
+                    self.df_for_union.append(pd.read_csv(i))
+
+            self.union_execute()
 
         except EOFError:
-            messagebox.showinfo("エラー", "ファイルの形式が間違っています")
+            messagebox.showerror("エラー", "ファイルの形式が間違っています")
 
+    def union_execute(self):
+        try:
+            df1 = self.df_for_union[0]
+            df2 = self.df_for_union[1]
+            self.df = pd.concat([df1, df2])
+            self.create_table()
+            self.reset_index()
+            self.count_row_column(self.df)
+            self.show_table(self.df)
+            self.show_table_info()
+            self.combobox_config()
+        except:
+            messagebox.showerror("エラー", "縦結合に失敗しました")
+
+    def union_execute_with_filename(self, name1, name2):
+        try:
+            df1 = self.df_for_union[0]
+            df2 = self.df_for_union[1]
+            self.df = pd.concat([df1, df2])
+            self.create_table()
+            self.reset_index()
+            self.count_row_column(self.df)
+            self.show_table(self.df)
+            self.show_table_info()
+            self.combobox_config()
+        except:
+            messagebox.showerror("エラー", "縦結合に失敗しました")
+
+    # Row Operation
     def add_window(self):
         if self.column_names:
             window = tk.Toplevel(self)
@@ -508,7 +817,7 @@ class DataManagement(tk.Frame):
             blank2.pack()
             # blank2.grid(row=1, column=0)
             canvas = tk.Canvas(frame)
-            # canvas.configure(scrollregion=canvas.bbox("all"))
+            # canvas.configure(scroll-region=canvas.bbox("all"))
             canvas.pack(side=tkinter.LEFT, expand=1, fill=tkinter.BOTH)
             h_scroll = ttk.Scrollbar(window, orient=tk.HORIZONTAL, command=canvas.xview)
             h_scroll.config(command=canvas.xview)
@@ -532,8 +841,7 @@ class DataManagement(tk.Frame):
                 if column == "index":
                     pass
                 else:
-                    list_row = []
-                    list_row.append(ttk.Label(second_frame, text=column))
+                    list_row = [ttk.Label(second_frame, text=column)]
                     self.list_entry.append(ttk.Entry(second_frame))
                     list_row[-1].grid(row=2, column=i)
                     self.list_entry[-1].grid(row=3, column=i)
@@ -604,216 +912,7 @@ class DataManagement(tk.Frame):
         except:
             messagebox.showinfo("エラー", "ファイルが読み込まれていません")
 
-    def reset_index(self):
-        try:
-            del self.df["index"]
-        except:
-            pass
-        index = list(range(len(self.df)))
-        self.df.insert(loc=0, column='index', value=index)
-
-    def select_file_dropbox(self):
-        name = filedialog.askopenfilename()
-        self.file_names_listbox.insert("end", name)
-
-    def drop_inside_listbox(self, event):
-        if event.data[-1] == "}":
-            if event.data[0] == "{":
-                event.data = event.data[:-1]
-                event.data = event.data[1:]
-            else:
-                pass
-        else:
-            pass
-        self.file_names_listbox.insert("end", event.data)
-
-    def select_file(self, event):
-        try:
-            file_name = self.file_names_listbox.get(self.file_names_listbox.curselection())
-            if file_name.endswith(".xlsx"):
-                self.df = pd.read_excel(file_name)
-            elif file_name.endswith(".csv"):
-                self.df = pd.read_csv(file_name)
-            messagebox.showinfo("確認", "Excelファイル読み込み完了")
-        except:
-            messagebox.showinfo("エラー", "ファイルの形式が間違っています")
-        try:
-            del self.tree
-        except:
-            pass
-        index = list(range(len(self.df)))
-        self.df.insert(loc=0, column='index', value=index)
-        self.create_table()
-        self.show_table_info()
-        self.show_table(self.df)
-        print(self.df)
-
-    """
-    def load_excel_file(self):
-        try:
-
-            self.df = pd.read_excel("./" + self.entry1.get() + ".xlsx", sheet_name=str(self.entry2.get()))
-            # print(self.df)
-            self.show_table_info()
-
-
-        except:
-            messagebox.showinfo("エラー", "入力されたファイル名かシート名が正しくありません")
-    """
-
-    # 表情報の表示
-    def create_table(self):
-        self.tree = ttk.Treeview(self.frame4, height=30)
-        self.tree.grid(row=0, column=0)
-        tree_h_scroll = ttk.Scrollbar(
-            self.frame4,
-            orient=tk.HORIZONTAL,
-            command=self.tree.xview
-        )
-
-        tree_v_scroll = ttk.Scrollbar(
-            self.frame4,
-            orient=tk.VERTICAL,
-            command=self.tree.yview
-        )
-        self.tree['xscrollcommand'] = tree_h_scroll.set
-        self.tree['yscrollcommand'] = tree_v_scroll.set
-        # self.tree.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
-        tree_h_scroll.grid(row=1, column=0, sticky=tk.EW)
-        tree_v_scroll.grid(row=0, column=1, sticky=tk.NS)
-
-        self.button_show_df = ttk.Button(self.frame5, text="表全体を表示", width=25, command=self.show_current_df)
-        self.button_show_df.grid(row=0, column=0)
-
-        self.button_to_excel = ttk.Button(self.frame5, text="Excelファイル形式で保存", width=25, command=self.to_excel)
-        self.button_to_excel.grid(row=0, column=1)
-
-        self.button_to_csv = ttk.Button(self.frame5, text="CSVファイル形式で保存", width=25, command=self.to_csv)
-        self.button_to_csv.grid(row=0, column=2)
-
-    def to_excel(self):
-        file = filedialog.asksaveasfile(mode='w', defaultextension=".xlsx")
-        self.df.to_excel(file)
-
-    def to_csv(self):
-        file = filedialog.asksaveasfile(mode='w', defaultextension=".xlsx")
-        self.df.to_csv(file)
-
-    def show_current_df(self):
-        self.show_table(self.df)
-        self.show_table_info()
-
-    def show_table_info(self):
-        self.column_names = list(self.df.columns.values)
-        # indexは表には常に表示されるが、削除できないようにカラム一覧からは消しておく
-        self.column_names.pop(0)
-        print(self.column_names)
-        # 行数、列数の設定
-        self.count_row_column(self.df)
-        # comboboxに要素を追加
-        self.combobox_config()
-
-        # リストボックスにリストを追加
-        # リストを空にする
-        self.listbox.delete(0, tkinter.END)
-        for x in self.column_names:
-            self.listbox.insert(tk.END, x)
-
-    def show_table(self, data):
-
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-        self.tree["column"] = list(data.columns)
-
-        self.tree.column("# 0", anchor=tkinter.CENTER, stretch=tkinter.NO, width=0)
-
-        # self.tree.column("# 1", anchor=tkinter.CENTER, stretch=tkinter.NO, width=100)
-        # self.tree.heading("# 1", text="ID")
-        i = 1
-        for column in self.tree["column"]:
-            self.tree.heading("# " + str(i), text=column)
-            self.tree.column("# " + str(i), anchor=tkinter.CENTER, stretch=tkinter.NO, width=100)
-            i = i + 1
-        rows = data.to_numpy().tolist()
-        print(rows)
-        for row in rows:
-            self.tree.insert("", "end", values=row)
-        self.count_row_column(data)
-
-    """
-    def load_excel_file(self):
-        try:
-
-            self.df = pd.read_excel("./" + self.entry1.get() + ".xlsx", sheet_name=str(self.entry2.get()))
-            print(self.df)
-
-            # 表情報の表示
-
-            self.column_names = list(self.df.columns.values)
-            print(self.column_names)
-            # 行数、列数の設定
-            self.count_row_column()
-            # comboboxに要素を追加
-            self.combobox_config()
-
-            # リストボックスにリストを追加
-            # リストを空にする
-            self.listbox.delete(0, tkinter.END)
-            for x in self.column_names:
-                self.listbox.insert(tk.END, x)
-            messagebox.showinfo("確認", "Excelファイル読み込み完了")
-        except:
-            messagebox.showinfo("エラー", "入力されたファイル名かシート名が正しくありません")
-    """
-
-    # 全選択する
-    def select_all(self):
-        self.listbox.select_set(0, tk.END)
-
-    # 全クリアする
-    def clear_all(self):
-        self.listbox.select_clear(0, tk.END)
-
-    # 確定する
-    def confirm(self):
-        self.selected.clear()
-        try:
-            for i in self.listbox.curselection():
-                self.selected.append(self.listbox.get(i, i)[0])
-                self.df_selected = self.df[self.selected].copy()
-                self.df_selected.insert(0, 'index', self.df['index'])
-                self.show_table(self.df_selected)
-            if self.selected:
-                messagebox.showinfo("選択完了", "選択したコラムでDataFrameを作成しました")
-            else:
-                messagebox.showinfo("エラー", "コラムを選択して下さい")
-            print(self.df_selected)
-        except:
-            messagebox.showinfo("エラー", "ファイルが読み込まれていません")
-
-    # 探索する
-    def search(self):
-
-        if self.selected:
-            keyword = self.entry_keyWord.get()
-            if keyword:
-                self.df_CONCAT = self.df_selected[self.selected[0]].astype(str)
-                for x in range(1, len(self.selected)):
-                    self.df_CONCAT += self.df_selected[self.selected[x]].astype(str) + " "
-
-                df_contain_value = self.df_selected[self.df_CONCAT.str.contains(keyword)]
-                print(df_contain_value)
-                self.show_table(df_contain_value)
-                rows_count_contain_value = df_contain_value.shape[0]
-
-                self.label_rowsKeywordResult.config(text=str(rows_count_contain_value) + " 行")
-
-            else:
-                messagebox.showinfo("エラー", "検索ワードが入力されていません")
-        else:
-            messagebox.showinfo("エラー", "カラムを選択して下さい")
-
+    # Column Operation
     # 列追加  #既に存在するコラム名は追加できないようにする
     def add_column(self):
         column_new = self.entry_newColumn.get()
@@ -890,19 +989,6 @@ class DataManagement(tk.Frame):
     # 新しいwindowを開いて各列の情報を入力させる？
 
     # 行数列数設定
-    def count_row_column(self, data):
-        self.rows_count = data.shape[0]
-        self.columns_count = data.shape[1]
-        self.cell_count = self.rows_count * self.columns_count
-        self.label_rowCount.config(text=str(self.rows_count) + " 行")
-        self.label_columnCount.config(text=str(self.columns_count - 1) + " 列")
-        self.label_cellCount.config(text=str(self.cell_count) + " セル")
-
-    # combobox config
-    def combobox_config(self):
-        self.column_combobox1['values'] = self.column_names
-        self.column_combobox2['values'] = self.column_names
-        self.column_combobox3['values'] = self.column_names
 
 
 def main():
