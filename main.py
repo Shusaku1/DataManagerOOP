@@ -11,9 +11,20 @@ import pandas as pd
 from tkinterdnd2 import TkinterDnD
 
 
+def reset_index_data(data):
+    try:
+        del data["index"]
+    except:
+        pass
+    index = list(range(len(data)))
+    data.insert(loc=0, column='index', value=index)
+
+
 class DataManagement(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
+        self.button_downloadTable = None
+        self.data_within_table = None
         self.df_for_union = []
         self.button_to_csv = None
         self.button_to_excel = None
@@ -89,13 +100,14 @@ class DataManagement(tk.Frame):
         self.button_full_join = ttk.Button(self.frame1, text='FULL OUTER JOIN', width=20,
                                            command=lambda: self.join_window(3))
         self.button_union = ttk.Button(self.frame1, text='UNION', width=20,
-                                       command=lambda: self.union_window())
-        self.button_union_all = ttk.Button(self.frame1, text='UNION ALL', width=20,
-                                           command=lambda: self.union_window())
+                                       command=lambda: self.union_window(1))
+        self.button_union_with_filename = ttk.Button(self.frame1, text='UNION (FILE NAME)', width=20,
+                                           command=lambda: self.union_window(2))
         # 空白作り用
         self.label_blank1 = ttk.Label(self.frame1, text="　　　　　　")
         self.label_blank2 = ttk.Label(self.frame1, text="　　　　　　")
         self.label_blankJoin = ttk.Label(self.frame1, text="       ")
+        self.label_blankUnion = ttk.Label(self.frame1, text="       ")
         """
         # 入力とボタン
         self.entry1 = ttk.Entry(self.frame1)
@@ -122,8 +134,9 @@ class DataManagement(tk.Frame):
         self.button_left_join.grid(row=5, column=3)
         self.button_right_join.grid(row=6, column=3)
         self.button_full_join.grid(row=7, column=3)
-        self.button_union.grid(row=8, column=3)
-        self.button_union_all.grid(row=9, column=3)
+        self.label_blankUnion.grid(row=8, column=3)
+        self.button_union.grid(row=9, column=3)
+        self.button_union_with_filename.grid(row=10, column=3)
 
         self.label_blank1.grid(row=0, column=2)
         self.label_blank2.grid(row=1, column=2)
@@ -397,17 +410,17 @@ class DataManagement(tk.Frame):
         tree_h_scroll.grid(row=1, column=0, sticky=tk.EW)
         tree_v_scroll.grid(row=0, column=1, sticky=tk.NS)
 
-        self.button_show_df = ttk.Button(self.frame5, text="表全体を表示", width=37, command=self.show_current_df)
+        self.button_show_df = ttk.Button(self.frame5, text="表全体を表示", width=25, command=self.show_current_df)
         self.button_show_df.grid(row=0, column=0)
 
-        # self.button_to_excel = ttk.Button(self.frame5, text="Excelファイル形式で保存", width=25, command=self.to_excel)
-        # self.button_to_excel.grid(row=0, column=1)
+        self.button_downloadTable = ttk.Button(self.frame5, text="表保存", width=25, command=self.download_table)
+        self.button_downloadTable.grid(row=0, column=1)
 
-        self.button_to_csv = ttk.Button(self.frame5, text="CSVファイル形式で保存", width=37, command=self.to_csv)
-        self.button_to_csv.grid(row=0, column=1)
+        self.button_to_csv = ttk.Button(self.frame5, text="データフレーム全体保存", width=25, command=self.to_csv)
+        self.button_to_csv.grid(row=0, column=2)
 
     def show_table(self, data):
-
+        self.data_within_table = data
         for item in self.tree.get_children():
             self.tree.delete(item)
 
@@ -463,6 +476,12 @@ class DataManagement(tk.Frame):
         self.df.to_csv(file, index=False)
         messagebox.showinfo("完了", "保存完了")
 
+    def download_table(self):
+        file = filedialog.asksaveasfile(filetypes=[("csv file", ".csv")], defaultextension=".csv")
+        reset_index_data(self.data_within_table)
+        self.data_within_table.to_csv(file, index=False)
+        messagebox.showinfo("完了", "保存完了")
+
     # DF information
     def count_row_column(self, data):
         self.rows_count = data.shape[0]
@@ -478,7 +497,7 @@ class DataManagement(tk.Frame):
         self.column_combobox2['values'] = self.column_names
         self.column_combobox3['values'] = self.column_names
 
-    def reset_index(self):
+    def reset_index_df(self):
         try:
             del self.df["index"]
         except:
@@ -659,7 +678,7 @@ class DataManagement(tk.Frame):
             right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
             self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="inner")
             self.create_table()
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
             self.show_table_info()
@@ -675,7 +694,7 @@ class DataManagement(tk.Frame):
             right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
             self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="left")
             self.create_table()
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
             self.show_table_info()
@@ -691,7 +710,7 @@ class DataManagement(tk.Frame):
             right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
             self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="right")
             self.create_table()
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
             self.show_table_info()
@@ -707,7 +726,7 @@ class DataManagement(tk.Frame):
             right_on = self.df1_column_listbox.get(self.df1_column_listbox.curselection())
             self.df = pd.merge(df1, df2, left_on=left_on, right_on=right_on, how="outer")
             self.create_table()
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
             self.show_table_info()
@@ -716,7 +735,7 @@ class DataManagement(tk.Frame):
             messagebox.showerror("エラー", "選択したコラムで結合はできません")
 
     # union
-    def union_window(self):
+    def union_window(self, id):
         window = tk.Toplevel(self)
         window.title("UNION window")  # ウィンドウタイトル
         window.geometry("300x380")  # ウィンドウサイズ(幅x高さ)
@@ -740,16 +759,18 @@ class DataManagement(tk.Frame):
         # label
         label_choose = ttk.Label(frame_union, text="結合する二つのファイルを選択して下さい")
         label_choose.grid(row=0, column=0)
-        confirm_button = ttk.Button(frame_union, text="決定", width=20, command=self.create_df_union)
+        confirm_button = ttk.Button(frame_union, text="UNION実行", width=20, command=lambda: self.create_df_union(id))
+
         confirm_button.grid(row=2, column=0)
 
         # JOINように選ばれたファイルをdf化
 
-    def create_df_union(self):
+    def create_df_union(self,id):
         try:
             self.df_for_union.clear()
-            r = 0
             get_content = []
+            file_names = []
+
             for x in self.file_names_listbox2.curselection():
                 get_content.append(self.file_names_listbox2.get(x))
 
@@ -761,7 +782,12 @@ class DataManagement(tk.Frame):
                     self.df_for_union.append(pd.read_excel(i))
                 elif i.endswith(".csv"):
                     self.df_for_union.append(pd.read_csv(i))
-
+                file_names.append(i.split('/', -1)[-1])
+            if id == 0:
+                pass
+            else:
+                self.df_for_union[0]['file_name'] = file_names[0]
+                self.df_for_union[1]['file_name'] = file_names[1]
             self.union_execute()
 
         except EOFError:
@@ -773,7 +799,7 @@ class DataManagement(tk.Frame):
             df2 = self.df_for_union[1]
             self.df = pd.concat([df1, df2])
             self.create_table()
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
             self.show_table_info()
@@ -787,7 +813,7 @@ class DataManagement(tk.Frame):
             df2 = self.df_for_union[1]
             self.df = pd.concat([df1, df2])
             self.create_table()
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
             self.show_table_info()
@@ -883,7 +909,7 @@ class DataManagement(tk.Frame):
             for x in index_to_remove:
                 # self.df = self.df.drop([self.df.index[x]])
                 self.df = self.df[self.df['index'] != x]
-            self.reset_index()
+            self.reset_index_df()
             self.count_row_column(self.df)
             self.show_table(self.df)
         except:
@@ -907,7 +933,7 @@ class DataManagement(tk.Frame):
                 index_to_switch.append(x[0])
             a, b = self.df.iloc[index_to_switch[0]].copy(), self.df.iloc[index_to_switch[1]].copy()
             self.df.iloc[index_to_switch[0]], self.df.iloc[index_to_switch[1]] = b, a
-            self.reset_index()
+            self.reset_index_df()
             self.show_table(self.df)
         except:
             messagebox.showinfo("エラー", "ファイルが読み込まれていません")
