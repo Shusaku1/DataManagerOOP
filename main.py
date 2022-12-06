@@ -17,7 +17,9 @@ def reset_index_data(data):
     except:
         pass
     index = list(range(len(data)))
-    data.insert(loc=0, column='index', value=index)
+    # df = pd.DataFrame(index, columns=['index'])
+    data["index"] = index
+    # // data.insert(loc=0, column='index', value=index)
 
 
 class DataManagement(tk.Frame):
@@ -91,18 +93,18 @@ class DataManagement(tk.Frame):
         self.label_rowCount = ttk.Label(self.frame1, text="  ")  # rows
         self.label_columnCount = ttk.Label(self.frame1, text="  ")  # columns
         self.label_cellCount = ttk.Label(self.frame1, text="  ")
-        self.button_inner_join = ttk.Button(self.frame1, text='INNER JOIN', width=20,
+        self.button_inner_join = ttk.Button(self.frame1, text='INNER JOIN', width=25,
                                             command=lambda: self.join_window(0))
-        self.button_left_join = ttk.Button(self.frame1, text='LEFT OUTER JOIN', width=20,
+        self.button_left_join = ttk.Button(self.frame1, text='LEFT OUTER JOIN', width=25,
                                            command=lambda: self.join_window(1))
-        self.button_right_join = ttk.Button(self.frame1, text='RIGHT OUTER JOIN', width=20,
+        self.button_right_join = ttk.Button(self.frame1, text='RIGHT OUTER JOIN', width=25,
                                             command=lambda: self.join_window(2))
-        self.button_full_join = ttk.Button(self.frame1, text='FULL OUTER JOIN', width=20,
+        self.button_full_join = ttk.Button(self.frame1, text='FULL OUTER JOIN', width=25,
                                            command=lambda: self.join_window(3))
-        self.button_union = ttk.Button(self.frame1, text='UNION', width=20,
+        self.button_union = ttk.Button(self.frame1, text='UNION', width=25,
                                        command=lambda: self.union_window(1))
-        self.button_union_with_filename = ttk.Button(self.frame1, text='UNION (FILE NAME)', width=20,
-                                           command=lambda: self.union_window(2))
+        self.button_union_with_filename = ttk.Button(self.frame1, text='UNION (ファイル名付き)', width=25,
+                                                     command=lambda: self.union_window(2))
         # 空白作り用
         self.label_blank1 = ttk.Label(self.frame1, text="　　　　　　")
         self.label_blank2 = ttk.Label(self.frame1, text="　　　　　　")
@@ -185,7 +187,7 @@ class DataManagement(tk.Frame):
         # 全選択、全クリア、確定ボタン
         self.button_selectAll = ttk.Button(self.frame2, text="全選択", command=self.select_all)
         self.button_clearAll = ttk.Button(self.frame2, text="全クリア", command=self.clear_all)
-        self.button_confirm = ttk.Button(self.frame2, text="確定", command=self.confirm)
+        self.button_confirm = ttk.Button(self.frame2, text="確定", command=lambda: self.confirm(0))
         # 各種ボタン配置
         self.button_selectAll.grid(row=2, column=1)
         self.button_clearAll.grid(row=3, column=1)
@@ -368,6 +370,7 @@ class DataManagement(tk.Frame):
         self.create_table()
         self.show_table_info()
         self.show_table(self.df)
+        self.df_selected = pd.DataFrame(None)
         print(self.df)
 
     """
@@ -410,7 +413,7 @@ class DataManagement(tk.Frame):
         tree_h_scroll.grid(row=1, column=0, sticky=tk.EW)
         tree_v_scroll.grid(row=0, column=1, sticky=tk.NS)
 
-        self.button_show_df = ttk.Button(self.frame5, text="表全体を表示", width=25, command=self.show_current_df)
+        self.button_show_df = ttk.Button(self.frame5, text="データフレーム全体を表示", width=25, command=self.show_current_df)
         self.button_show_df.grid(row=0, column=0)
 
         self.button_downloadTable = ttk.Button(self.frame5, text="表保存", width=25, command=self.download_table)
@@ -540,7 +543,7 @@ class DataManagement(tk.Frame):
 
         # 確定する
 
-    def confirm(self):
+    def confirm(self, mode):
         self.selected.clear()
         try:
             for i in self.listbox.curselection():
@@ -551,7 +554,8 @@ class DataManagement(tk.Frame):
             if self.selected:
                 messagebox.showinfo("選択完了", "選択したコラムでDataFrameを作成しました")
             else:
-                messagebox.showinfo("エラー", "コラムを選択して下さい")
+                if mode == 0:
+                    messagebox.showinfo("エラー", "コラムを選択して下さい")
             print(self.df_selected)
         except:
             messagebox.showinfo("エラー", "ファイルが読み込まれていません")
@@ -765,7 +769,7 @@ class DataManagement(tk.Frame):
 
         # JOINように選ばれたファイルをdf化
 
-    def create_df_union(self,id):
+    def create_df_union(self, id):
         try:
             self.df_for_union.clear()
             get_content = []
@@ -889,6 +893,7 @@ class DataManagement(tk.Frame):
         self.df.loc[len(self.df.index)] = new_elements
         self.count_row_column(self.df)
         self.show_table(self.df)
+        self.list_entry = None
         print(self.df)
 
     # 　消した後のindexの変化をどうするか考える。
@@ -909,8 +914,10 @@ class DataManagement(tk.Frame):
             for x in index_to_remove:
                 # self.df = self.df.drop([self.df.index[x]])
                 self.df = self.df[self.df['index'] != x]
+
             self.reset_index_df()
             self.count_row_column(self.df)
+            self.confirm(1)
             self.show_table(self.df)
         except:
             messagebox.showinfo("エラー", "ファイルが読み込まれていません")
