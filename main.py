@@ -18,8 +18,8 @@ def reset_index_data(data):
         pass
     index = list(range(len(data)))
     # df = pd.DataFrame(index, columns=['index'])
-    data["index"] = index
-    # // data.insert(loc=0, column='index', value=index)
+    # data["index"] = index
+    data.insert(loc=0, column='index', value=index)
 
 
 class DataManagement(tk.Frame):
@@ -475,12 +475,19 @@ class DataManagement(tk.Frame):
     """
 
     def to_csv(self):
-        file = filedialog.asksaveasfile(filetypes=[("csv file", ".csv")], defaultextension=".csv")
+        #file = filedialog.asksaveasfile(filetypes=[("csv file", ".csv")], defaultextension=".csv")
+        #self.df.to_csv(file, index=False, sep=',')
+        file = filedialog.asksaveasfilename(filetypes=[("csv file", ".csv")])
+        file = file + '.csv'
+        print(file)
         self.df.to_csv(file, index=False)
         messagebox.showinfo("完了", "保存完了")
 
     def download_table(self):
-        file = filedialog.asksaveasfile(filetypes=[("csv file", ".csv")], defaultextension=".csv")
+        # file = filedialog.asksaveasfile(filetypes=[("csv file", ".csv")], defaultextension=".csv")
+        file = filedialog.asksaveasfilename(filetypes=[("csv file", ".csv")])
+        file = file + '.csv'
+        print(file)
         reset_index_data(self.data_within_table)
         self.data_within_table.to_csv(file, index=False)
         messagebox.showinfo("完了", "保存完了")
@@ -893,7 +900,7 @@ class DataManagement(tk.Frame):
         self.df.loc[len(self.df.index)] = new_elements
         self.count_row_column(self.df)
         self.show_table(self.df)
-        self.list_entry = None
+        self.list_entry = []
         print(self.df)
 
     # 　消した後のindexの変化をどうするか考える。
